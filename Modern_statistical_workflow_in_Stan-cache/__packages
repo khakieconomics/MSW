@@ -1,0 +1,8 @@
+base
+knitr
+dplyr
+ggplot2
+gridExtra
+MASS
+mvtnorm
+plotly
