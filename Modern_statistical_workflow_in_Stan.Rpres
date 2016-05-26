@@ -613,7 +613,7 @@ $$
 y_{t} = \alpha_{t} + \beta_{1, t} y_{t-1} + \epsilon_{t}
 $$
 
-with $\alpha_{t} \sim \normal(\alpha_{t-1}, \sigma_{\alpha})$ and $\beta_{t} \sim \normal(\beta_{t-1}, \sigma_{\beta})$. We could model the innovations $\epsilon_{t}$ as we did before. 
+with $\alpha_{t} \sim \mbox{normal}(\alpha_{t-1}, \sigma_{\alpha})$ and $\beta_{t} \sim \mbox{normal}(\beta_{t-1}, \sigma_{\beta})$. We could model the innovations $\epsilon_{t}$ as we did before. 
 
 
 TVP-AR model
