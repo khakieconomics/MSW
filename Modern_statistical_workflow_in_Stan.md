@@ -386,6 +386,10 @@ The process is simple:
 - Specify distributions that make sense to you given your expertise for $p(\mbox{av}_{m}, \mbox{av}_{f}, \sigma, \mbox{sex distr.})$
 - Assuming independence $p(\mbox{av}_{m})$, $p(\mbox{av}_{f})$, $p(\sigma)$, and $p(\mbox{sex distr.})$. 
 
+
+Generative models: Incorporating uncertainty
+========================================================
+
 Then
 
 1. Draw $\mbox{params}$ from these distributions
