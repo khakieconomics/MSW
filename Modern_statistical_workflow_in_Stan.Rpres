@@ -606,7 +606,7 @@ TVP-AR model
 ========================================================
 
 Time-varying parameter models allow us to incorporate some changes in the parameter vector over time. For instance, we may want to model the fact that relationships change over time, or not let previous regimes affect our current estimates too greatly. 
-
+ 
 A TVP AR(1) model might take the form
 
 $$
