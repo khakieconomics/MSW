@@ -867,17 +867,30 @@ model1 <- lm(log(packs) ~ log(rprice), data = CigarettesSW)
 # Regression with controls
 model12 <- lm(log(packs) ~ log(rprice) + log(income) + year, data = CigarettesSW)
 
-model2 <- ivreg(log(packs) ~ log(rprice) + log(rincome) + year | log(rincome) + tdiff + I(tax/cpi), data = CigarettesSW)
+model2 <- ivreg(log(packs) ~ log(rprice) + log(rincome) + year | log(rincome) + I(tax/cpi) + year, data = CigarettesSW)
+```
+
+
+
+2-stage least squares example
+========================================================
+class: small-code
+
+```r
+Y <- log(CigarettesSW$packs)
+X <- data_frame(log_rincome = log(CigarettesSW$rincome), year = CigarettesSW$year)
+Z <- CigarettesSW$tax/CigarettesSW$cpi
+X_endog <- log(CigarettesSW$rprice)
 
 library(rstan)
-stanmodel <- stan("ivreg_model.stan", 
+stanmodel <- stan("iv_mod_1instrument.stan", 
                   cores  = 4, 
-                  data = list(N = N,
-                              P = P,
+                  data = list(N = nrow(X),
+                              P = ncol(X),
                               X = X,
                               X_endog = X_endog,
                               Z = Z,
-                              Y = Y))
+                              Y = Y), iter = 500)
 
 stanmodel
 ```
@@ -1117,84 +1130,12 @@ class: small-code
 
 ```r
 bart_model <- bart(x.train = X, y.train = Y, x.test = X2)
-```
-
-```
-
-
-Running BART with numeric y
-
-number of trees: 200
-Prior:
-	k: 2.000000
-	degrees of freedom in sigma prior: 3
-	quantile in sigma prior: 0.900000
-	power and base for tree prior: 2.000000 0.950000
-	use quantiles for rule cut points: 0
-data:
-	number of training observations: 530
-	number of test observations: 530
-	number of explanatory variables: 10
-
-
-Cutoff rules c in x<=c vs x>c
-Number of cutoffs: (var: number of possible c):
-(1: 100) (2: 100) (3: 100) (4: 100) (5: 100) 
-(6: 100) (7: 100) (8: 100) (9: 100) (10: 100) 
-
-
-
-Running mcmc loop:
-iteration: 100 (of 1100)
-iteration: 200 (of 1100)
-iteration: 300 (of 1100)
-iteration: 400 (of 1100)
-iteration: 500 (of 1100)
-iteration: 600 (of 1100)
-iteration: 700 (of 1100)
-iteration: 800 (of 1100)
-iteration: 900 (of 1100)
-iteration: 1000 (of 1100)
-iteration: 1100 (of 1100)
-time for loop: 23
-
-Tree sizes, last iteration:
-2 2 2 2 2 2 2 2 3 2 2 2 2 3 2 3 3 3 2 2 
-2 2 2 2 2 2 2 2 3 2 2 2 2 2 2 2 2 2 2 3 
-2 3 3 3 2 2 3 3 2 3 3 2 2 2 3 2 2 3 2 2 
-2 2 3 2 3 2 3 2 4 3 2 2 2 2 3 1 4 4 2 2 
-2 2 2 3 2 2 3 2 2 2 2 3 2 2 2 4 1 2 2 2 
-3 1 2 1 2 2 2 2 3 4 3 2 3 1 2 3 2 2 2 2 
-2 2 2 3 2 2 3 2 2 3 2 2 4 3 3 1 3 3 2 2 
-1 2 2 4 2 2 2 4 2 3 2 1 2 2 2 3 4 2 3 2 
-3 1 2 3 2 2 3 2 2 2 2 1 2 2 4 2 3 2 2 3 
-3 2 4 2 3 2 2 2 2 3 2 2 2 5 2 2 2 2 2 2 
-Variable Usage, last iteration (var:count):
-(1: 40) (2: 35) (3: 25) (4: 18) (5: 26) 
-(6: 23) (7: 27) (8: 24) (9: 22) (10: 22) 
-
-DONE BART 11-2-2014
-```
-
-```r
 plot(bart_model)
-```
 
-![plot of chunk unnamed-chunk-32](Causality_workshop-figure/unnamed-chunk-32-1.png)
-
-```r
 pp_sim_train <- bart_model$yhat.train
 pp_sim_test <- bart_model$yhat.test
 sim_differences <- pp_sim_test - pp_sim_train
 
 dev.off()
-```
-
-```
-null device 
-          1 
-```
-
-```r
 hist(apply(sim_differences, 1, mean))
 ```

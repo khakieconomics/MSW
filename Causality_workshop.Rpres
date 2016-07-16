@@ -937,17 +937,29 @@ model1 <- lm(log(packs) ~ log(rprice), data = CigarettesSW)
 # Regression with controls
 model12 <- lm(log(packs) ~ log(rprice) + log(income) + year, data = CigarettesSW)
 
-model2 <- ivreg(log(packs) ~ log(rprice) + log(rincome) + year | log(rincome) + tdiff + I(tax/cpi), data = CigarettesSW)
+model2 <- ivreg(log(packs) ~ log(rprice) + log(rincome) + year | log(rincome) + I(tax/cpi) + year, data = CigarettesSW)
+```
+
+
+
+2-stage least squares example
+========================================================
+class: small-code
+```{r, eval = F}
+Y <- log(CigarettesSW$packs)
+X <- data_frame(log_rincome = log(CigarettesSW$rincome), year = CigarettesSW$year)
+Z <- CigarettesSW$tax/CigarettesSW$cpi
+X_endog <- log(CigarettesSW$rprice)
 
 library(rstan)
-stanmodel <- stan("ivreg_model.stan", 
+stanmodel <- stan("iv_mod_1instrument.stan", 
                   cores  = 4, 
-                  data = list(N = N,
-                              P = P,
+                  data = list(N = nrow(X),
+                              P = ncol(X),
                               X = X,
                               X_endog = X_endog,
                               Z = Z,
-                              Y = Y))
+                              Y = Y), iter = 500)
 
 stanmodel
 
@@ -1180,7 +1192,7 @@ Y <- Super_2$performance
 BART and treatment effects
 ========================================================
 class: small-code
-```{r}
+```{r, eval = F}
 bart_model <- bart(x.train = X, y.train = Y, x.test = X2)
 plot(bart_model)
 
