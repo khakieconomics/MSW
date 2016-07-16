@@ -660,7 +660,9 @@ model <- lm(purchases ~ Letters + Gender + factor(Postcode) + Age, data = mypane
 ```
 - Unobserved confounders: past managers/marketers may have targeted Nilay more, but that doesn't mean that the marketing *caused* her higher purchases. 
   - Maybe she was more likely to both receive marketing *and* make purchases?
-  - Example from Facebook marketing uplift estimates
+  - Example from Facebook marketing uplift estimates: 
+  
+  http://www.kellogg.northwestern.edu/faculty/gordon_b/files/kellogg_fb_whitepaper.pdf
   
   
 Individual-level "effects"
@@ -702,16 +704,14 @@ Introducing the mixed effects model
 
 ![plot of chunk unnamed-chunk-22](Causality_workshop-figure/unnamed-chunk-22-1.png)
 
-***install.packages(c("lme4", "arm"))***
 
 
-
-Implementing the varying-intercepts model in R
+Benchmarking varying-intercepts/slopes model
 ========================================================
 class: small-code
 - We want to estimate the parameter $\beta_1$ in 
 \[
-\mbox{PostTest}_i = \beta_0 + \beta_1 \mbox{treatment}_{i} + \beta \mbox{controls}_{i} + \epsilon_{i}
+\mbox{performance}_{it} = \beta_0 + \beta_1 \mbox{fees}_{it} + \epsilon_{it}
 \]
 
 
@@ -719,21 +719,68 @@ class: small-code
 ```r
 library(rstanarm)
 
-mod2 <- stan_lmer(PostTest ~ Treatment + PreTest + (1 | Grade), data = Electric_company)
-#summary(mod2)
+load("super_market_share.RData")
+
+# Take a subset for which we have fees
+
+Super_2 <- Super %>% filter(!is.na(Average.fees) & !is.na(performance))
+
+mod2 <- stan_lm(performance ~ Average.fees, 
+                data = Super_2, 
+                prior = R2(location = 0.3, "mean"), 
+                cores = 4)
+mod2
 ```
 
-Note the syntax: All the same, except for the `(1 | Grade)`. 
 
-- The `1` means that we want varying intercepts
-- The `| Grade ` says that we want varying intercepts for each grade. 
+Benchmarking varying-intercepts/slopes model
+========================================================
+class: small-code
+- We want to estimate the parameter $\beta_1$ in 
+\[
+\mbox{performance}_{it} = \beta_0 + \beta_1 \mbox{fees}_{it} + \epsilon_{it}
+\]
+
+
+Now add some controls
+========================================================
+class: small-code
+
+
+```r
+library(rstanarm)
+
+load("super_market_share.RData")
+
+# Take a subset for which we have fees
+
+Super_2 <- Super %>% filter(!is.na(Average.fees) & !is.na(performance))
+
+mod3 <- stan_lm(performance ~ Average.fees + lag_perf + Fund_type, 
+                data = Super_2, 
+                prior = R2(location = 0.3, "mean"), 
+                cores = 4)
+mod3
+```
+
+
+Now add some controls
+========================================================
+class: small-code
+
+
+```r
+mod4 <- stan_lmer(performance ~ Average.fees + lag_perf + (1 | Fund_name), 
+                data = Super_2, 
+                cores = 4)
+mod4
+```
+
 
 Implementing the varying-intercepts model in R
 ========================================================
 class: small-code
 ### We can also have varying treatment effects
-
-**Use the superannuation data**
 
 
 
@@ -743,6 +790,8 @@ Relationship to difference-in-differences
 ========================================================
 
 ![DID](Illustration_of_Difference_in_Differences.png)
+
+
 
 Session 5
 ========================================================
@@ -803,9 +852,13 @@ CigarettesSW <- CigarettesSW %>%
 
 `dependent_variable ~ endogenous_var + confounders | confounders + instruments`
 
+- Not yet implemented in `rstanarm`, but will be soon. 
+- Can code up your own in Stan, example given here: 
+
+
 2-stage least squares example
 ========================================================
-
+class: small-code
 
 ```r
 # Simple bivariate regression
@@ -815,38 +868,18 @@ model1 <- lm(log(packs) ~ log(rprice), data = CigarettesSW)
 model12 <- lm(log(packs) ~ log(rprice) + log(income) + year, data = CigarettesSW)
 
 model2 <- ivreg(log(packs) ~ log(rprice) + log(rincome) + year | log(rincome) + tdiff + I(tax/cpi), data = CigarettesSW)
-```
 
+library(rstan)
+stanmodel <- stan("ivreg_model.stan", 
+                  cores  = 4, 
+                  data = list(N = N,
+                              P = P,
+                              X = X,
+                              X_endog = X_endog,
+                              Z = Z,
+                              Y = Y))
 
-Going over estimating the causal impact if you can run an experiment
-========================================================
-class: small-code
-- We can run linear regression: 
-
-\[
-\mbox{outcome}_{i} = \beta_{0} + \beta_{1}\mbox{treament}_{i} + \beta\mbox{controls} + \epsilon_{i}
-\]
-
-```
-model <- lm(outcome ~ treatment + control1 + etc, data = mydata)
-```
-
-And the "causal effect" of the treatment on our outcome is the estimate of $\beta_1$
-
-
-Going over estimating the causal impact if you can run an experiment
-========================================================
-class: small-code
-### Example
-
-```
-library(arm)
-data(lalonde)
-
-
-model <- lm(outcome ~ treatment + controls, data = lalonde)
-
-#summary(model)
+stanmodel
 ```
 
 
@@ -1017,3 +1050,151 @@ You should go and learn my method!
 
 BART and treatment effects
 ========================================================
+
+- The big push at the moment is to incorporate machine learning
+in causal inference. This is one such example. Commonly used by Hill, Green and others. 
+- Idea: directly predict the counterfactual. 
+- Build up from individual-level treatment effects. 
+
+
+
+| Individual| Y_t1| Y_t2|
+|----------:|----:|----:|
+|          1|   NA|    6|
+|          2|   NA|    5|
+|          3|    5|   NA|
+|          4|    3|   NA|
+|          5|    7|   NA|
+
+
+BART and treatment effects
+========================================================
+
+- BART is a very impressive machine learning algorithm.
+- Does feature selection well, incorporates interactions, non-linearity
+- Coherent uncertainty (no need to bootstrap)
+
+We can use BART to help find treatment effects by running 
+BART on the very simple model
+
+```
+outcome ~ controls + treatment
+```
+- We then generare posterior predictive inference for 
+all units at the two levels of treatment considered. 
+
+
+BART and treatment effects
+========================================================
+class: small-code
+
+```r
+library(BayesTree)
+load("super_market_share.RData")
+
+Super_2 <- Super %>% 
+  dplyr::select(lag_perf, FUM, over_50, female, Fund_type, Average.fees, performance) %>%
+  mutate(FUM = log(FUM))
+
+Super_2 <- Super_2[complete.cases(Super_2),]
+
+X <- Super_2 %>% 
+  dplyr::select(lag_perf, FUM, over_50, female, Fund_type, Average.fees) %>%
+  as.data.frame
+
+X <- model.matrix(~ . - 1, data = X)
+X2 <- X %>% as_data_frame %>%
+  mutate(Average.fees = Average.fees + 0.1) %>%
+  as.data.frame %>% as.matrix
+
+Y <- Super_2$performance
+```
+
+
+BART and treatment effects
+========================================================
+class: small-code
+
+```r
+bart_model <- bart(x.train = X, y.train = Y, x.test = X2)
+```
+
+```
+
+
+Running BART with numeric y
+
+number of trees: 200
+Prior:
+	k: 2.000000
+	degrees of freedom in sigma prior: 3
+	quantile in sigma prior: 0.900000
+	power and base for tree prior: 2.000000 0.950000
+	use quantiles for rule cut points: 0
+data:
+	number of training observations: 530
+	number of test observations: 530
+	number of explanatory variables: 10
+
+
+Cutoff rules c in x<=c vs x>c
+Number of cutoffs: (var: number of possible c):
+(1: 100) (2: 100) (3: 100) (4: 100) (5: 100) 
+(6: 100) (7: 100) (8: 100) (9: 100) (10: 100) 
+
+
+
+Running mcmc loop:
+iteration: 100 (of 1100)
+iteration: 200 (of 1100)
+iteration: 300 (of 1100)
+iteration: 400 (of 1100)
+iteration: 500 (of 1100)
+iteration: 600 (of 1100)
+iteration: 700 (of 1100)
+iteration: 800 (of 1100)
+iteration: 900 (of 1100)
+iteration: 1000 (of 1100)
+iteration: 1100 (of 1100)
+time for loop: 23
+
+Tree sizes, last iteration:
+2 2 2 2 2 2 2 2 3 2 2 2 2 3 2 3 3 3 2 2 
+2 2 2 2 2 2 2 2 3 2 2 2 2 2 2 2 2 2 2 3 
+2 3 3 3 2 2 3 3 2 3 3 2 2 2 3 2 2 3 2 2 
+2 2 3 2 3 2 3 2 4 3 2 2 2 2 3 1 4 4 2 2 
+2 2 2 3 2 2 3 2 2 2 2 3 2 2 2 4 1 2 2 2 
+3 1 2 1 2 2 2 2 3 4 3 2 3 1 2 3 2 2 2 2 
+2 2 2 3 2 2 3 2 2 3 2 2 4 3 3 1 3 3 2 2 
+1 2 2 4 2 2 2 4 2 3 2 1 2 2 2 3 4 2 3 2 
+3 1 2 3 2 2 3 2 2 2 2 1 2 2 4 2 3 2 2 3 
+3 2 4 2 3 2 2 2 2 3 2 2 2 5 2 2 2 2 2 2 
+Variable Usage, last iteration (var:count):
+(1: 40) (2: 35) (3: 25) (4: 18) (5: 26) 
+(6: 23) (7: 27) (8: 24) (9: 22) (10: 22) 
+
+DONE BART 11-2-2014
+```
+
+```r
+plot(bart_model)
+```
+
+![plot of chunk unnamed-chunk-32](Causality_workshop-figure/unnamed-chunk-32-1.png)
+
+```r
+pp_sim_train <- bart_model$yhat.train
+pp_sim_test <- bart_model$yhat.test
+sim_differences <- pp_sim_test - pp_sim_train
+
+dev.off()
+```
+
+```
+null device 
+          1 
+```
+
+```r
+hist(apply(sim_differences, 1, mean))
+```
