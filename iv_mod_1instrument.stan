@@ -17,9 +17,12 @@ parameters {
   vector<lower = 0> tau[2];
 }
 transformed parameters {
-  vector[N] X_endog_fitted;
+  matrix[N, 2] depvars_hat;
   
-  X_endog_fitted = Z1*beta[1]
+  for(i in 1:N) {
+    depvars_hat[i,1] = Z1*beta[1];
+    depvars_hat[i,2] = X*beta[2][1:(rows(beta[2])-1)] + depvars_hat[i,1]*beta[2][rows(beta[2])];
+  }
 }
 model {
   // Priors
@@ -29,6 +32,6 @@ model {
   omega ~ lkj_corr(4);
   tau ~ student_t(5, 0, 2);
   
-  depvars ~ multi_normal(, quad_form_diag(omega, tau))
+  depvars ~ multi_normal(depvars_hat, quad_form_diag(omega, tau))
   
 }
